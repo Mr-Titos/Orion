@@ -1,7 +1,8 @@
 require('dotenv').config();
 const Discord = require('discord.js');
 const bot = new Discord.Client({
-    autoReconnect: true
+    fetchAllMembers: true,
+    autoReconnect: true,
 });
 const DataMethod = require('./dataMethod.js');
 const ChannelManager = require('./channelManager.js');
@@ -27,8 +28,8 @@ let currentChanRaid;
 
 bot.on('ready', function () {
     bot.user.setActivity(status, 1).then(() => {
-        bot.guilds.forEach(guild => {
-            guild.members.find(member => member.user.id === bot.user.id).setNickname(`[${prefix}] ${bot.user.username}`);
+        bot.guilds.cache.forEach(guild => {
+            guild.members.cache.find(member => member.user.id === bot.user.id).setNickname(`[${prefix}] ${bot.user.username}`);
         });
         console.log("Orion-Bot connecté !");
     });
@@ -36,12 +37,16 @@ bot.on('ready', function () {
 
 
 try {
-    bot.on('message', msg => {
-        if (msg.guild === null || msg.author.id === bot.user.id) {
+    bot.on('message', async function (msg) {
+        if (msg.guild === null || msg.author.id === bot.user.id || msg.author.bot) {
             return;
+        };
+        let member = msg.member;
+        if (member === null || member === undefined) {
+            await console.log('null');
+            await msg.guild.members.fetch(msg.author.id);
         }
-
-        if (!msg.member.hasPermission('ADMINISTRATOR')) {
+        if (!member.hasPermission('ADMINISTRATOR')) {
             return;
         }
         processMsg(msg.content).then(async function (parsedMsg) {
@@ -228,7 +233,7 @@ bot.on('guildMemberUpdate', (oldMember, newMember) => {
         })
         .then(logs => logs.entries.first())
         .then(entry => {
-            if (oldMember.roles === newMember.roles) {
+            if (oldMember.roles.cache === newMember.roles.cache) {
                 return;
             }
             let executor = entry.executor;
@@ -239,10 +244,10 @@ bot.on('guildMemberUpdate', (oldMember, newMember) => {
             switch (keyEntry) {
                 case '$add':
                     let newRoleId = entry.changes[0].new[0].id;
-                    let newRole = oldMember.guild.roles.find(role => role.id === newRoleId);
+                    let newRole = oldMember.guild.roles.cache.find(role => role.id === newRoleId);
                     hasPermAdmin(newRole).then(hasPerm => {
                         if (hasPerm) {
-                            newMember.removeRole(newRole);
+                            newMember.roles.remove(newRole);
                             DerankUser(executor, oldMember.guild, 'Ajout d\'un role avec des permissions admin a l\'utilisateur **' + newMember.user.tag + '**');
                         }
                     });
@@ -262,13 +267,13 @@ function processMsg(rawMsg) {
 
 async function DerankUser(user, guild, reason) {
     try {
-        const member = guild.members.find(member => member.user.id === user.id);
+        const member = guild.members.cache.find(member => member.user.id === user.id);
         let rolesName = '';
-        await member.roles.forEach(role => {
+        await member.roles.cache.forEach(role => {
             if (role.name !== '@everyone')
                 rolesName += '\n\`\`' + role.name + '\`\`';
         });
-        member.removeRoles(member.roles);
+        member.roles.remove(member.roles);
         guild.owner.send(`L'utilisateur **${user.tag}** vient d'etre derank\nMotif : ${reason} \nVoici les roles qui ont été enlevés : ${rolesName}`);
     } catch (exception) {
         console.error(exception);
@@ -295,7 +300,7 @@ function Welcome(member) {
 function hasPermAdmin(role) {
     return new Promise(async function (resolve) {
         await adminPermissions.forEach(perm => {
-            if (role.hasPermission(perm)) {
+            if (role.permissions.has(perm)) {
                 resolve(true);
             }
         });
