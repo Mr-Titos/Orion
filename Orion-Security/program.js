@@ -14,6 +14,7 @@ const channelTimeInterval = 60000; // milliseconds
 const kickBanTimeInterval = 60000; // milliseconds
 const adminPermissions = ['KICK_MEMBERS', 'BAN_MEMBERS', 'ADMINISTRATOR', 'MANAGE_CHANNELS', 'MANAGE_GUILD', 'MANAGE_ROLES']
 const authorizedId = ['724649847541596330' /*bot.user.id*/ , '717732736638648330' /*LaBoule_Bot*/ ];
+const authorizedRoleId = '721096811330142223';
 const helpMsg = '``Prefix : ' + prefix + '``\n' +
     'Les commandes disponibles sont :' + '\n' +
     '- **setWelcome <message de bienvenue>** : Permet de configurer le message qui apparaitra lorsqu\'un nouveau membre rejoint le serveur ' + '\n' +
@@ -54,7 +55,7 @@ try {
                 case 'setwelcome':
                     let rawwelcomeMsg = parsedMsg.slice(1, parsedMsg.length).toString().replace(/,/g, ' ');
                     DataMethod.setWelcomeMsg(rawwelcomeMsg).then(() => {
-                        DataMethod.getWelcomeMsg(bot.guilds.first().owner).then(welcomeMsg =>
+                        DataMethod.getWelcomeMsg(bot.guilds.cache.first().owner).then(welcomeMsg =>
                             msg.channel.send("N'oubliez pas de mettre <user> pour mentionner l'utilisateur qui rejoint !" +
                                 "\n\nLe message de bienvenue a été modifié pour :\n" + welcomeMsg)
                         );
@@ -155,26 +156,32 @@ bot.on('channelDelete', channel => {
         .then(logs => logs.entries.first())
         .then(async function (entry) {
             let executor = entry.executor;
-            if (channelStacktrace[executor.id] === undefined || channelStacktrace[executor.id] === null) {
-                channelStacktrace[executor.id] = new Array();
-                setTimeout(async function () {
-                    channelStacktrace[executor.id] = null
-                }, channelTimeInterval);
-            }
-            await channelStacktrace[executor.id].push({
-                channelName: channel.name
+            channel.guild.members.fetch(executor).then(async function (executorMember) {
+                if (executorMember.roles.cache.has(authorizedRoleId) || executor.id === channel.guild.ownerID) {
+                    return;
+                }
+
+                if (channelStacktrace[executor.id] === undefined || channelStacktrace[executor.id] === null) {
+                    channelStacktrace[executor.id] = new Array();
+                    setTimeout(async function () {
+                        channelStacktrace[executor.id] = null
+                    }, channelTimeInterval);
+                }
+                await channelStacktrace[executor.id].push({
+                    channelName: channel.name
+                });
+                if (channelStacktrace[executor.id].length === 3 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
+                    let names = '';
+                    await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
+                    channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 3 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
+                }
+                if (channelStacktrace[executor.id].length === 5 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
+                    let names = '';
+                    await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
+                    channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 5 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
+                    DerankUser(executor, channel.guild, `Suppresion de 5 channels en moins de ${channelTimeInterval/1000/60} minute(s)`)
+                }
             });
-            if (channelStacktrace[executor.id].length === 3 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
-                let names = '';
-                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
-                channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 3 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
-            }
-            if (channelStacktrace[executor.id].length === 5 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
-                let names = '';
-                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
-                channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 5 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
-                DerankUser(executor, channel.guild, `Suppresion de 5 channels en moins de ${channelTimeInterval/1000/60} minute(s)`)
-            }
         })
 });
 
@@ -185,23 +192,28 @@ bot.on('guildMemberRemove', member => {
         .then(logs => logs.entries.first())
         .then(async function (entry) {
             let executor = entry.executor;
-            if (kickBanStacktrace[executor.id] === undefined || kickBanStacktrace[executor.id] === null) {
-                kickBanStacktrace[executor.id] = new Array();
-                setTimeout(async function () {
-                    kickBanStacktrace[executor.id] = null
-                }, kickBanTimeInterval);
-            }
-            await kickBanStacktrace[executor.id].push({
-                memberName: member.user.tag
+            member.guild.members.fetch(executor).then(async function (executorMember) {
+                if (executorMember.roles.cache.has(authorizedRoleId) || executor.id === member.guild.ownerID) {
+                    return;
+                }
+                if (kickBanStacktrace[executor.id] === undefined || kickBanStacktrace[executor.id] === null) {
+                    kickBanStacktrace[executor.id] = new Array();
+                    setTimeout(async function () {
+                        kickBanStacktrace[executor.id] = null
+                    }, kickBanTimeInterval);
+                }
+                await kickBanStacktrace[executor.id].push({
+                    memberName: member.user.tag
+                });
+                if (kickBanStacktrace[executor.id].length === 3 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
+                    let names = '';
+                    await kickBanStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.memberName + '\`\`');
+                    member.guild.owner.send(`L\'utilisateur **${executor.tag}** a kick / ban 3 utilisateurs en moins de ${kickBanTimeInterval/1000/60} minute(s).\nLes utilisateurs kick / ban sont : ${names}`);
+                }
+                if (kickBanStacktrace[executor.id].length === 7 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
+                    DerankUser(executor, member.guild, `7 ban en moins de ${kickBanTimeInterval/1000/60} minute(s)`);
+                }
             });
-            if (kickBanStacktrace[executor.id].length === 3 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
-                let names = '';
-                await kickBanStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.memberName + '\`\`');
-                member.guild.owner.send(`L\'utilisateur **${executor.tag}** a kick / ban 3 utilisateurs en moins de ${kickBanTimeInterval/1000/60} minute(s).\nLes utilisateurs kick / ban sont : ${names}`);
-            }
-            if (kickBanStacktrace[executor.id].length === 7 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
-                DerankUser(executor, member.guild, `7 ban en moins de ${kickBanTimeInterval/1000/60} minute(s)`);
-            }
         });
 });
 
@@ -211,18 +223,20 @@ bot.on('roleUpdate', async function (oldrole, newrole) {
         })
         .then(logs => logs.entries.first())
         .then(entry => {
-            if (oldrole.permissions === newrole.permissions) {
+            if (oldrole.permissions === newrole.permissions || entry === undefined) {
                 return;
             }
             let executor = entry.executor;
-            if (executor.id === newrole.guild.ownerID || authorizedId.some(id => executor.id === id)) {
-                return;
-            }
-            hasPermAdmin(newrole).then(hasPerm => {
-                if (hasPerm) {
-                    newrole.setPermissions(new Discord.Permissions(oldrole.permissions));
-                    DerankUser(executor, oldrole.guild, 'Ajout de permissions admin au role **' + oldrole.name + '**');
+            oldrole.guild.members.fetch(executor).then(executorMember => {
+                if (executor.id === newrole.guild.ownerID || authorizedId.some(id => executor.id === id) || executorMember.roles.cache.has(authorizedRoleId)) {
+                    return;
                 }
+                hasPermAdmin(newrole).then(hasPerm => {
+                    if (hasPerm) {
+                        newrole.setPermissions(new Discord.Permissions(oldrole.permissions));
+                        DerankUser(executor, oldrole.guild, 'Ajout de permissions admin au role **' + oldrole.name + '**');
+                    }
+                });
             });
         });
 });
@@ -233,28 +247,31 @@ bot.on('guildMemberUpdate', (oldMember, newMember) => {
         })
         .then(logs => logs.entries.first())
         .then(entry => {
-            if (oldMember.roles.cache === newMember.roles.cache) {
+            if (oldMember.roles.cache === newMember.roles.cache || entry === undefined) {
                 return;
             }
             let executor = entry.executor;
-            if (executor.id === oldMember.guild.ownerID || authorizedId.some(id => executor.id === id)) {
-                return;
-            }
-            let keyEntry = entry.changes[0].key;
-            switch (keyEntry) {
-                case '$add':
-                    let newRoleId = entry.changes[0].new[0].id;
-                    let newRole = oldMember.guild.roles.cache.find(role => role.id === newRoleId);
-                    hasPermAdmin(newRole).then(hasPerm => {
-                        if (hasPerm) {
-                            newMember.roles.remove(newRole);
-                            DerankUser(executor, oldMember.guild, 'Ajout d\'un role avec des permissions admin a l\'utilisateur **' + newMember.user.tag + '**');
-                        }
-                    });
-                    break;
-                case '$remove':
-                    break;
-            }
+            oldMember.guild.members.fetch(executor).then(executorMember => {
+                if (executor.id === oldMember.guild.ownerID || authorizedId.some(id => executor.id === id) || executorMember.roles.cache.has(authorizedRoleId)) {
+                    return;
+                }
+                let keyEntry = entry.changes[0].key;
+                switch (keyEntry) {
+                    case '$add':
+                        let newRoleId = entry.changes[0].new[0].id;
+                        let newRole = oldMember.guild.roles.cache.find(role => role.id === newRoleId);
+                        hasPermAdmin(newRole).then(hasPerm => {
+                            if (hasPerm) {
+                                newMember.roles.remove(newRole);
+                                DerankUser(executor, oldMember.guild, 'Ajout d\'un role avec des permissions admin a l\'utilisateur **' + newMember.user.tag + '**');
+                            }
+                        });
+                        break;
+                    case '$remove':
+                        break;
+                }
+            })
+
         });
 });
 
@@ -269,11 +286,14 @@ async function DerankUser(user, guild, reason) {
     try {
         const member = guild.members.cache.find(member => member.user.id === user.id);
         let rolesName = '';
+        let rolesToRemove = new Array();
         await member.roles.cache.forEach(role => {
-            if (role.name !== '@everyone')
+            if (role.name !== '@everyone' && role.id !== '721238556923658332') { // 721238556923658332 = nitro boost id role
                 rolesName += '\n\`\`' + role.name + '\`\`';
+                rolesToRemove.push(role);
+            }
         });
-        member.roles.remove(member.roles.cache);
+        member.roles.remove(rolesToRemove);
         guild.owner.send(`L'utilisateur **${user.tag}** vient d'etre derank\nMotif : ${reason} \nVoici les roles qui ont été enlevés : ${rolesName}`);
     } catch (exception) {
         console.error(exception);
