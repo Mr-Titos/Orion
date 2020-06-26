@@ -284,7 +284,7 @@ async function DerankUser(user, guild, reason) {
 function Welcome(member) {
     DataMethod.getWelcomeMsg(member).then(welcomeMsg => {
         DataMethod.getWelcomeChannel().then(welcomeChannelId => {
-            let channel = member.guild.channels.find(channel => channel.id === welcomeChannelId);
+            let channel = member.guild.channels.cache.find(channel => channel.id === welcomeChannelId);
             if (channel === undefined || channel === null) {
                 member.guild.owner.send("Un utilisateur a rejoint le serveur sans que le channel pour les acceuillir soit configuré.\n**" +
                     prefix + "welcome channel** dans le channel ou le message doit apparaître");
@@ -311,7 +311,7 @@ function hasPermAdmin(role) {
 function isRaidCategory(guild) {
     return new Promise(async function (resolve) {
         let category;
-        await DataMethod.getRaidCategory().then(raidCategoryId => category = guild.channels.find(chan => chan.id === raidCategoryId));
+        await DataMethod.getRaidCategory().then(raidCategoryId => category = guild.channels.cache.find(chan => chan.id === raidCategoryId));
         if (category === null || category === undefined) {
             await ChannelManager.createCategory(guild, 'Orion Raid Logs', [{
                     id: guild.defaultRole.id,
