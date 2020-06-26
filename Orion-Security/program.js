@@ -80,7 +80,7 @@ try {
 
                     isRaidCategory(msg.guild).then(raidCateogry => {
                         ChannelManager.createTextChannel(msg.guild, 'rl-' + new Date().toLocaleDateString(), [{
-                                id: msg.guild.defaultRole.id,
+                                id: msg.guild.roles.everyone.id,
                                 deny: ['VIEW_CHANNEL'],
                             }], raidCateogry)
                             .then(chan => {
@@ -141,7 +141,7 @@ bot.on('guildMemberAdd', member => {
                 break;
             case 2:
                 member.ban();
-                currentChanRaid.send(member.user.tag + ' has been ban' + new Date().toLocaleTimeString());
+                currentChanRaid.send(member.user.tag + ' has been ban - ' + new Date().toLocaleTimeString());
                 resolve();
                 break;
         }
@@ -164,15 +164,15 @@ bot.on('channelDelete', channel => {
             await channelStacktrace[executor.id].push({
                 channelName: channel.name
             });
-            if (channelStacktrace[executor.id].length === 3 && channel.guild.owner.id !== executor.id) {
+            if (channelStacktrace[executor.id].length === 3 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
                 let names = '';
-                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n' + stacktrace.channelName);
-                channel.guild.owner.send(`L\'utilisateur ${executor.tag} a supprimé 3 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
+                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
+                channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 3 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
             }
-            if (channelStacktrace[executor.id].length === 5 && channel.guild.owner.id !== executor.id) {
+            if (channelStacktrace[executor.id].length === 5 && channel.guild.owner.id !== executor.id && channel.guild.me.id !== executor.id) {
                 let names = '';
-                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n' + stacktrace.channelName);
-                channel.guild.owner.send(`L\'utilisateur ${executor.tag} a supprimé 5 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
+                await channelStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.channelName + '\`\`');
+                channel.guild.owner.send(`L\'utilisateur **${executor.tag}** a supprimé 5 channels en moins de ${channelTimeInterval/1000/60} minute(s).\nLes channels supprimés sont : ${names}`);
                 DerankUser(executor, channel.guild, `Suppresion de 5 channels en moins de ${channelTimeInterval/1000/60} minute(s)`)
             }
         })
@@ -194,12 +194,12 @@ bot.on('guildMemberRemove', member => {
             await kickBanStacktrace[executor.id].push({
                 memberName: member.user.tag
             });
-            if (kickBanStacktrace[executor.id].length === 2 && member.guild.owner.id !== executor.id) {
+            if (kickBanStacktrace[executor.id].length === 3 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
                 let names = '';
-                await kickBanStacktrace[executor.id].forEach(stacktrace => names += '\n' + stacktrace.memberName);
-                member.guild.owner.send(`L\'utilisateur ${executor.tag} a kick / ban 3 utilisateurs en moins de ${kickBanTimeInterval/1000/60} minute(s).\nLes utilisateurs kick / ban sont : ${names}`);
+                await kickBanStacktrace[executor.id].forEach(stacktrace => names += '\n\`\`' + stacktrace.memberName + '\`\`');
+                member.guild.owner.send(`L\'utilisateur **${executor.tag}** a kick / ban 3 utilisateurs en moins de ${kickBanTimeInterval/1000/60} minute(s).\nLes utilisateurs kick / ban sont : ${names}`);
             }
-            if (kickBanStacktrace[executor.id].length === 7 && member.guild.owner.id !== executor.id) {
+            if (kickBanStacktrace[executor.id].length === 7 && member.guild.owner.id !== executor.id && member.guild.me.id !== executor.id) {
                 DerankUser(executor, member.guild, `7 ban en moins de ${kickBanTimeInterval/1000/60} minute(s)`);
             }
         });
@@ -273,7 +273,7 @@ async function DerankUser(user, guild, reason) {
             if (role.name !== '@everyone')
                 rolesName += '\n\`\`' + role.name + '\`\`';
         });
-        member.roles.remove(member.roles);
+        member.roles.remove(member.roles.cache);
         guild.owner.send(`L'utilisateur **${user.tag}** vient d'etre derank\nMotif : ${reason} \nVoici les roles qui ont été enlevés : ${rolesName}`);
     } catch (exception) {
         console.error(exception);
@@ -291,7 +291,9 @@ function Welcome(member) {
                 return;
             }
             channel.send(welcomeMsg).then(msg => {
-                msg.delete(10000);
+                msg.delete({
+                    timeout: 10000
+                });
             });
         });
     });
@@ -314,7 +316,7 @@ function isRaidCategory(guild) {
         await DataMethod.getRaidCategory().then(raidCategoryId => category = guild.channels.cache.find(chan => chan.id === raidCategoryId));
         if (category === null || category === undefined) {
             await ChannelManager.createCategory(guild, 'Orion Raid Logs', [{
-                    id: guild.defaultRole.id,
+                    id: guild.roles.everyone.id,
                     deny: ['VIEW_CHANNEL'],
                 }])
                 .then(cat => {
